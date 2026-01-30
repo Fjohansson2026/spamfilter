@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TensorFlow.js Bildklassificering Demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        #preview {
+            max-width: 100%;
+            max-height: 400px;
+            margin: 20px auto;
+            display: block;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        input, button {
+            padding: 12px 20px;
+            margin: 10px 0;
+            font-size: 16px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        #result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #ecf0f1;
+            border-radius: 8px;
+            min-height: 100px;
+        }
+        .loading {
+            color: #e67e22;
+            font-weight: bold;
+        }
+        .top-prediction {
+            font-size: 1.3em;
+            margin: 15px 0;
+            padding: 12px;
+            background: #d4edda;
+            border-left: 5px solid #28a745;
+            border-radius: 4px;
+        }
+        .prediction {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>TensorFlow.js – Bildklassificering</h1>
+    <p>Ladda upp en bild så försöker MobileNet gissa vad det är!</p>
+
+    <input type="file" id="imageInput" accept="image/*">
+    <br>
+    <img id="preview" src="" alt="Förhandsgranskning">
+    <br>
+    <button onclick="predict()">Analysera bilden</button>
+
+    <div id="result"></div>
+</div>
+
+<script>
+    let model = null;
+    const resultDiv = document.getElementById('result');
+    const previewImg = document.getElementById('preview');
+
+    // Ladda modellen en gång när sidan startar
+    async function loadModel() {
+        if (model) return model;
+        
+        resultDiv.innerHTML = '<p class="loading">Laddar MobileNet-modellen... (kan ta 5–15 sekunder första gången)</p>';
+        
+        try {
+            // MobileNet v2 från TF Hub (224×224 input)
+            model = await tf.loadGraphModel(
+                'https://tfhub.dev/google/tfjs-model/imagenet/mobilenet_v2_100_224/classification/5/default/1',
+                { fromTFHub: true }
+            );
+            resultDiv.innerHTML = '<p style="color:#27ae60">Modellen är laddad!</p>';
+            return model;
+        } catch (err) {
+            resultDiv.innerHTML = `<p style="color:#c0392b">Fel vid laddning av modell: ${err.message}</p>`;
+            console.error(err);
+            return null;
+        }
+    }
+
+    // Förhandsgranska bilden när användaren väljer fil
+    document.getElementById('imageInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            previewImg.src = event.target.result;
+            previewImg.style.display = 'block';
+            resultDiv.innerHTML = ''; // Rensa tidigare resultat
+        };
+        reader.readAsDataURL(file);
+    });
+
+    async function predict() {
+        if (!model) {
+            model = await loadModel();
+            if (!model) return;
+        }
+
+        const file = document.getElementById('imageInput').files[0];
+        if (!file) {
+            alert('Välj en bild först!');
+            return;
+        }
+
+        resultDiv.innerHTML = '<p class="loading">Analyserar bilden...</p>';
+
+        try {
+            // Skapa tensor från bilden
+            const img = previewImg;
+            let tensor = tf.browser.fromPixels(img)
+                .resizeNearestNeighbor([224, 224])
+                .toFloat()
+                .expandDims();
+
+            // Normalisering (MobileNet förväntar sig värden mellan -1 och 1)
+            tensor = tensor.div(127.5).sub(1.0);
+
+            // Kör prediktion
+            const predictions = await model.predict(tensor).data();
+            
+            // Hämta topp 5 (vi har inte labels här, men visar sannolikheter)
+            // För demo visar vi bara de fem högsta värdena (utan namn)
+            const top5 = Array.from(predictions)
+                .map((prob, index) => ({ prob, index }))
+                .sort((a, b) => b.prob => a.prob)
+                .slice(0, 5);
+
+            // Visa resultat
+            let html = '<h2>Resultat</h2>';
+            html += `<div class="top-prediction">Högsta sannolikhet: ${(top5[0].prob * 100).toFixed(2)}%</div>`;
+            html += '<p>Topp 5 sannolikheter:</p>';
+
+            top5.forEach((p, i) => {
+                html += `<div class="prediction">Rank ${i+1}: ${(p.prob * 100).toFixed(2)}%</div>`;
+            });
+
+            resultDiv.innerHTML = html;
+
+            // Rensa tensor för att spara minne
+            tensor.dispose();
+        } catch (err) {
+            resultDiv.innerHTML = `<p style="color:#c0392b">Fel vid prediktion: ${err.message}</p>`;
+            console.error(err);
+        }
+    }
+
+    // Ladda modellen automatiskt när sidan laddas
+    window.addEventListener('load', loadModel);
+</script>
+
+</body>
+</html>
