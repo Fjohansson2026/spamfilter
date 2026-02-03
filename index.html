@@ -52,26 +52,10 @@
       overflow: hidden;
     }
 
-    .container::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-      animation: rotate 20s linear infinite;
-    }
-
-    @keyframes rotate {
-      100% { transform: rotate(360deg); }
-    }
-
     .header {
       text-align: center;
       margin-bottom: 40px;
       position: relative;
-      z-index: 2;
     }
 
     h1 {
@@ -90,7 +74,6 @@
       top: 20px;
       font-size: 4em;
       animation: bounce 2s infinite;
-      z-index: 2;
     }
 
     textarea {
@@ -202,12 +185,6 @@
       color: white;
       border: 3px solid #27ae60;
     }
-
-    @media (max-width: 600px) {
-      .container { padding: 25px; margin: 10px; }
-      h1 { font-size: 2em; }
-      .dude { font-size: 3em; right: 10px; top: 10px; }
-    }
   </style>
 </head>
 <body>
@@ -218,7 +195,7 @@
     </div>
     
     <textarea id="inputText" placeholder="Skriv en engelsk mening här... t.ex. 'Win FREE iPhone now!' eller 'Meeting at 3pm tomorrow.'"></textarea>
-    <button id="predictBtn">🔮 Analysera text</button>
+    <button id="predictBtn" disabled>🔮 Analysera text</button>
     
     <div id="status" class="status">Laddar AI-modell...</div>
     
@@ -235,15 +212,26 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+  <!-- TensorFlow.js laddas ASYNKRONT för att inte blockera -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js" onload="initApp()"></script>
+  
   <script>
     let model = null;
     let metadata = null;
     const MAX_LENGTH = 30;
+    let tfLoaded = false;
+
+    // Vänta på att TF.js laddas innan appen startar
+    function initApp() {
+      tfLoaded = true;
+      loadModel();
+    }
 
     async function loadModel() {
+      if (!tfLoaded) return; // Vänta på TF.js
+      
       try {
-        document.getElementById('status').textContent = 'Laddar Spam Detector...';
+        document.getElementById('status').textContent = '🔄 Laddar Spam Detector från tfjs_model...';
         
         model = await tf.loadLayersModel('tfjs_model/model.json');
         const metadataResponse = await fetch('tfjs_model/metadata.json');
@@ -251,17 +239,21 @@
         
         document.getElementById('status').textContent = '✅ AI redo! Testa din text.';
         document.getElementById('predictBtn').disabled = false;
+        document.getElementById('inputText').disabled = false;
         
       } catch (error) {
+        console.error('Modellfel:', error);
         document.getElementById('status').innerHTML = 
-          '❌ Fel: ' + error.message + 
-          '<br><small>Kontrollera tfjs_model-mappen</small>';
+          '❌ Kunde inte ladda modell: ' + error.message + 
+          '<br><small>Kontrollera att tfjs_model-mappen finns!</small>';
+        document.getElementById('predictBtn').disabled = true;
+        document.getElementById('inputText').disabled = true;
       }
     }
 
     function tokenize(text) {
       if (!metadata || !metadata.word_index) {
-        throw new Error('Vocabulary saknas');
+        throw new Error('Vocabulary saknas i metadata.json');
       }
       
       const words = text.toLowerCase().trim().split(/\s+/).filter(w => w.length > 0);
@@ -288,7 +280,7 @@
         };
       } else {
         return {
-          text: `✅ Dålig spam (${percent.toFixed(1)}%)`,
+          text: `✅ INTE SPAM (${percent.toFixed(1)}%)`,
           class: 'ham'
         };
       }
@@ -297,51 +289,78 @@
     async function predictText() {
       const inputText = document.getElementById('inputText').value.trim();
       if (!inputText) {
-        alert('Skriv en mening först!');
+        alert('Skriv en engelsk mening först!');
         return;
       }
 
       if (!model) {
-        alert('Modellen laddas...');
+        alert('AI-modellen laddas fortfarande...');
         return;
       }
 
       try {
-        document.getElementById('predictBtn').disabled = true;
-        document.getElementById('status').textContent = '🤖 Analyserar...';
+        const btn = document.getElementById('predictBtn');
+        btn.disabled = true;
+        btn.textContent = '🤖 Analyserar...';
+        document.getElementById('status').textContent = '🤖 AI analyserar texten...';
 
         const { words, tokens } = tokenize(inputText);
         const inputTensor = tf.tensor2d([tokens], [1, MAX_LENGTH]);
+        
         const prediction = model.predict(inputTensor);
         const scores = await prediction.data();
+        
         tf.dispose([inputTensor, prediction]);
         
         const verdict = getVerdict(scores[0]);
         
         document.getElementById('tokens').textContent = 
-          `Ord: ${JSON.stringify(words, null, 2)}\n\n` +
-          `Tokens: ${tokens.slice(0, 15).join(', ')}... (${tokens.length} totalt)`;
+          `Ord (${words.length}): ${JSON.stringify(words, null, 2)}\n\n` +
+          `Token IDs (${tokens.length}): ${tokens.slice(0, 15).join(', ')}${tokens.length > 15 ? '...' : ''}`;
         
         const resultBox = document.getElementById('probability');
         resultBox.textContent = verdict.text;
         resultBox.className = `result-box ${verdict.class}`;
 
         document.getElementById('output').style.display = 'block';
-        document.getElementById('status').textContent = '✅ Analys klar!';
+        document.getElementById('status').textContent = '✅ Ny analys redo!';
         
       } catch (error) {
-        document.getElementById('status').textContent = '❌ Fel: ' + error.message;
+        console.error('Prediktionsfel:', error);
+        document.getElementById('status').textContent = '❌ Analysfel: ' + error.message;
       } finally {
-        document.getElementById('predictBtn').disabled = false;
+        const btn = document.getElementById('predictBtn');
+        btn.disabled = false;
+        btn.textContent = '🔮 Analysera text';
       }
     }
 
-    document.getElementById('predictBtn').addEventListener('click', predictText);
-    document.getElementById('inputText').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && e.ctrlKey) predictText();
-    });
+    // Event listeners - SÄKERSTÄLL att elementen finns
+    function addEventListeners() {
+      const predictBtn = document.getElementById('predictBtn');
+      const inputText = document.getElementById('inputText');
+      
+      if (predictBtn) {
+        predictBtn.addEventListener('click', predictText);
+      }
+      
+      if (inputText) {
+        inputText.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter' && e.ctrlKey) {
+            predictText();
+          }
+        });
+      }
+    }
 
-    loadModel();
+    // Starta appen när DOM är laddad
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        addEventListeners();
+      });
+    } else {
+      addEventListeners();
+    }
   </script>
 </body>
 </html>
