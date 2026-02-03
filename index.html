@@ -81,7 +81,7 @@
 <body>
   <h1>🧠 TensorFlow.js Text Modell Tester</h1>
   
-  <textarea id="inputText" placeholder="Skriv en engelsk mening här... t.ex. 'The quick brown fox jumps'"></textarea>
+  <textarea id="inputText" placeholder="Skriv en engelsk mening här... t.ex. 'The quick brown fox jumps over the lazy dog'"></textarea>
   <button id="predictBtn">🔮 Testa Mening</button>
 
   <div id="status" class="loading">Laddar modell...</div>
@@ -101,16 +101,14 @@
   <script>
     let model = null;
     let metadata = null;
+    const MAX_LENGTH = 30; // Din modell kräver 30 tokens
 
     // Ladda modell och metadata
     async function loadModel() {
       try {
         document.getElementById('status').textContent = 'Laddar modell från tfjs_model/...';
         
-        // Ladda TF.js modell
         model = await tf.loadLayersModel('tfjs_model/model.json');
-        
-        // Ladda metadata för vocabulary
         const metadataResponse = await fetch('tfjs_model/metadata.json');
         metadata = await metadataResponse.json();
         
@@ -120,21 +118,32 @@
       } catch (error) {
         document.getElementById('status').innerHTML = 
           '❌ Fel vid modell-laddning: ' + error.message + 
-          '<br><small>Kontrollera att tfjs_model-mappen finns med alla filer (model.json, weights, metadata.json)</small>';
+          '<br><small>Kontrollera att tfjs_model-mappen finns med alla filer</small>';
       }
     }
 
-    // Tokenisera text med modellens vocabulary
+    // *** FIXAD TOKENISERING ***
     function tokenize(text) {
       if (!metadata || !metadata.word_index) {
         throw new Error('Vocabulary saknas i metadata.json');
       }
       
-      const words = text.toLowerCase().trim().split(/\s+/);
+      // Dela upp i ord
+      const words = text.toLowerCase().trim().split(/\s+/).filter(w => w.length > 0);
       const wordIndex = metadata.word_index;
-      const tokens = words.map(word => {
-        return wordIndex[word] || 0; // 0 för okända ord
-      });
+      
+      // Konvertera till tokens (0 för okända ord)
+      let tokens = words.map(word => wordIndex[word] || 0);
+      
+      // *** VIKTIG FIX: Padding till exakt 30 tokens ***
+      while (tokens.length < MAX_LENGTH) {
+        tokens.push(0); // Padding med 0:or
+      }
+      
+      // Klipp av om för långt
+      if (tokens.length > MAX_LENGTH) {
+        tokens = tokens.slice(0, MAX_LENGTH);
+      }
       
       return { words, tokens };
     }
@@ -156,11 +165,11 @@
         document.getElementById('predictBtn').disabled = true;
         document.getElementById('status').textContent = 'Kör prediktion...';
 
-        // Tokenisera input
+        // Tokenisera med padding
         const { words, tokens } = tokenize(inputText);
         
-        // Förbered input för modellen (padding/truncating efter behov)
-        const inputTensor = tf.tensor2d([tokens], [1, tokens.length]);
+        // Skapa tensor med rätt shape: [1, 30]
+        const inputTensor = tf.tensor2d([tokens], [1, MAX_LENGTH]);
         
         // Kör prediktion
         const prediction = model.predict(inputTensor);
@@ -169,8 +178,9 @@
         
         // Visa resultat
         document.getElementById('tokens').textContent = 
-          JSON.stringify(words, null, 2) + '\n\n' +
-          'Token IDs: ' + JSON.stringify(tokens, null, 2);
+          `Original ord: ${JSON.stringify(words, null, 2)}\n\n` +
+          `Token IDs (30 tokens): ${JSON.stringify(tokens.slice(0, 15), null, 2)}...\n` +
+          `(totalt ${tokens.length} tokens med padding)`;
         
         document.getElementById('probability').textContent = 
           (scores[0] * 100).toFixed(1) + '%';
@@ -191,7 +201,6 @@
       if (e.key === 'Enter' && e.ctrlKey) predictText();
     });
 
-    // Ladda modell vid start
     loadModel();
   </script>
 </body>
