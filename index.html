@@ -3,97 +3,235 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TF.js Text Modell Tester</title>
+  <title>🛡️ Spam Detector Pro</title>
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      max-width: 700px;
-      margin: 40px auto;
-      padding: 30px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+      40% { transform: translateY(-20px); }
+      60% { transform: translateY(-10px); }
     }
-    h1 { text-align: center; margin-bottom: 30px; }
+    
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 20px rgba(255,255,255,0.3); }
+      50% { box-shadow: 0 0 40px rgba(255,255,255,0.8); }
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      font-family: 'Segoe UI', -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c);
+      background-size: 400% 400%;
+      animation: gradientShift 15s ease infinite;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(20px);
+      border-radius: 30px;
+      padding: 40px;
+      max-width: 800px;
+      width: 100%;
+      box-shadow: 0 25px 45px rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.2);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+      animation: rotate 20s linear infinite;
+    }
+
+    @keyframes rotate {
+      100% { transform: rotate(360deg); }
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      position: relative;
+      z-index: 2;
+    }
+
+    h1 {
+      font-size: 2.5em;
+      margin: 0;
+      background: linear-gradient(45deg, #fff, #ffeaa7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 0 30px rgba(255,255,255,0.5);
+    }
+
+    .dude {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      font-size: 4em;
+      animation: bounce 2s infinite;
+      z-index: 2;
+    }
+
     textarea {
       width: 100%;
-      height: 100px;
-      padding: 15px;
+      height: 120px;
+      padding: 20px;
       border: none;
-      border-radius: 12px;
-      font-size: 16px;
-      box-sizing: border-box;
-      background: rgba(255,255,255,0.95);
+      border-radius: 20px;
+      font-size: 18px;
+      background: rgba(255,255,255,0.9);
+      color: #333;
+      resize: vertical;
       margin-bottom: 20px;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.1);
     }
+
+    textarea:focus {
+      outline: none;
+      transform: translateY(-2px);
+      box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+    }
+
     button {
       width: 100%;
-      padding: 15px;
-      font-size: 18px;
-      background: #ff6b6b;
+      padding: 20px;
+      font-size: 20px;
+      font-weight: bold;
+      background: linear-gradient(45deg, #ff6b6b, #ff8e8e);
       color: white;
       border: none;
-      border-radius: 12px;
+      border-radius: 25px;
       cursor: pointer;
-      transition: background 0.3s;
+      transition: all 0.3s ease;
+      box-shadow: 0 10px 30px rgba(255,107,107,0.4);
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
-    button:hover { background: #ff5252; }
-    button:disabled { background: #666; cursor: not-allowed; }
-    #output {
-      margin-top: 30px;
-      padding: 25px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 12px;
-      backdrop-filter: blur(10px);
+
+    button:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 40px rgba(255,107,107,0.6);
     }
-    .section {
-      margin-bottom: 20px;
+
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
     }
-    .section h3 {
-      margin: 0 0 10px 0;
+
+    .status {
+      text-align: center;
+      font-size: 18px;
+      font-style: italic;
+      margin: 20px 0;
       color: #ffeaa7;
+      min-height: 25px;
     }
+
+    .output {
+      margin-top: 30px;
+      padding: 30px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .section {
+      margin-bottom: 25px;
+    }
+
+    .section h3 {
+      margin: 0 0 15px 0;
+      color: #ffeaa7;
+      font-size: 1.3em;
+    }
+
     pre {
       background: rgba(0,0,0,0.3);
-      padding: 15px;
-      border-radius: 8px;
+      padding: 20px;
+      border-radius: 15px;
       font-size: 14px;
       white-space: pre-wrap;
       max-height: 200px;
       overflow-y: auto;
+      color: #e8e8e8;
+      border: 1px solid rgba(255,255,255,0.1);
     }
-    .probability {
-      font-size: 24px;
+
+    .result-box {
+      font-size: 28px;
       font-weight: bold;
       text-align: center;
-      padding: 20px;
-      background: rgba(255,255,255,0.2);
-      border-radius: 12px;
+      padding: 30px;
+      border-radius: 20px;
+      animation: glow 2s infinite;
+      margin: 20px 0;
     }
-    .loading {
-      text-align: center;
-      font-style: italic;
-      color: #ffeaa7;
+
+    .spam { 
+      background: rgba(255,107,107,0.8); 
+      color: white;
+      border: 3px solid #ff6b6b;
+    }
+
+    .ham { 
+      background: rgba(46,204,113,0.8); 
+      color: white;
+      border: 3px solid #27ae60;
+    }
+
+    @media (max-width: 600px) {
+      .container { padding: 25px; margin: 10px; }
+      h1 { font-size: 2em; }
+      .dude { font-size: 3em; right: 10px; top: 10px; }
     }
   </style>
 </head>
 <body>
-  <h1>🧠 TensorFlow.js Text Modell Tester</h1>
-  
-  <textarea id="inputText" placeholder="Skriv en engelsk mening här... t.ex. 'The quick brown fox jumps over the lazy dog'"></textarea>
-  <button id="predictBtn">🔮 Testa Mening</button>
-
-  <div id="status" class="loading">Laddar modell...</div>
-  <div id="output" style="display: none;">
-    <div class="section">
-      <h3>📝 Tokens (från vocabulary):</h3>
-      <pre id="tokens"></pre>
+  <div class="container">
+    <div class="header">
+      <h1>🛡️ Spam Detector Pro</h1>
+      <div class="dude">🤖</div>
     </div>
     
-    <div class="section">
-      <h3>🎯 Sannolikhet:</h3>
-      <div id="probability" class="probability">-</div>
+    <textarea id="inputText" placeholder="Skriv en engelsk mening här... t.ex. 'Win FREE iPhone now!' eller 'Meeting at 3pm tomorrow.'"></textarea>
+    <button id="predictBtn">🔮 Analysera text</button>
+    
+    <div id="status" class="status">Laddar AI-modell...</div>
+    
+    <div id="output" style="display: none;">
+      <div class="section">
+        <h3>📝 Tokens (från vocabulary):</h3>
+        <pre id="tokens"></pre>
+      </div>
+      
+      <div class="section">
+        <h3>🎯 AI Analys:</h3>
+        <div id="probability" class="result-box">-</div>
+      </div>
     </div>
   </div>
 
@@ -101,46 +239,39 @@
   <script>
     let model = null;
     let metadata = null;
-    const MAX_LENGTH = 30; // Din modell kräver 30 tokens
+    const MAX_LENGTH = 30;
 
-    // Ladda modell och metadata
     async function loadModel() {
       try {
-        document.getElementById('status').textContent = 'Laddar modell från tfjs_model/...';
+        document.getElementById('status').textContent = 'Laddar Spam Detector...';
         
         model = await tf.loadLayersModel('tfjs_model/model.json');
         const metadataResponse = await fetch('tfjs_model/metadata.json');
         metadata = await metadataResponse.json();
         
-        document.getElementById('status').textContent = '✅ Modell laddad! Skriv en mening och testa.';
+        document.getElementById('status').textContent = '✅ AI redo! Testa din text.';
         document.getElementById('predictBtn').disabled = false;
         
       } catch (error) {
         document.getElementById('status').innerHTML = 
-          '❌ Fel vid modell-laddning: ' + error.message + 
-          '<br><small>Kontrollera att tfjs_model-mappen finns med alla filer</small>';
+          '❌ Fel: ' + error.message + 
+          '<br><small>Kontrollera tfjs_model-mappen</small>';
       }
     }
 
-    // *** FIXAD TOKENISERING ***
     function tokenize(text) {
       if (!metadata || !metadata.word_index) {
-        throw new Error('Vocabulary saknas i metadata.json');
+        throw new Error('Vocabulary saknas');
       }
       
-      // Dela upp i ord
       const words = text.toLowerCase().trim().split(/\s+/).filter(w => w.length > 0);
       const wordIndex = metadata.word_index;
       
-      // Konvertera till tokens (0 för okända ord)
       let tokens = words.map(word => wordIndex[word] || 0);
       
-      // *** VIKTIG FIX: Padding till exakt 30 tokens ***
       while (tokens.length < MAX_LENGTH) {
-        tokens.push(0); // Padding med 0:or
+        tokens.push(0);
       }
-      
-      // Klipp av om för långt
       if (tokens.length > MAX_LENGTH) {
         tokens = tokens.slice(0, MAX_LENGTH);
       }
@@ -148,54 +279,63 @@
       return { words, tokens };
     }
 
-    // Kör prediktion
+    function getVerdict(probability) {
+      const percent = probability * 100;
+      if (percent > 50) {
+        return {
+          text: `🚨 TROLIGEN SPAM (${percent.toFixed(1)}%)`,
+          class: 'spam'
+        };
+      } else {
+        return {
+          text: `✅ Dålig spam (${percent.toFixed(1)}%)`,
+          class: 'ham'
+        };
+      }
+    }
+
     async function predictText() {
       const inputText = document.getElementById('inputText').value.trim();
       if (!inputText) {
-        alert('Skriv en engelsk mening först!');
+        alert('Skriv en mening först!');
         return;
       }
 
       if (!model) {
-        alert('Modellen är inte laddad än!');
+        alert('Modellen laddas...');
         return;
       }
 
       try {
         document.getElementById('predictBtn').disabled = true;
-        document.getElementById('status').textContent = 'Kör prediktion...';
+        document.getElementById('status').textContent = '🤖 Analyserar...';
 
-        // Tokenisera med padding
         const { words, tokens } = tokenize(inputText);
-        
-        // Skapa tensor med rätt shape: [1, 30]
         const inputTensor = tf.tensor2d([tokens], [1, MAX_LENGTH]);
-        
-        // Kör prediktion
         const prediction = model.predict(inputTensor);
         const scores = await prediction.data();
         tf.dispose([inputTensor, prediction]);
         
-        // Visa resultat
-        document.getElementById('tokens').textContent = 
-          `Original ord: ${JSON.stringify(words, null, 2)}\n\n` +
-          `Token IDs (30 tokens): ${JSON.stringify(tokens.slice(0, 15), null, 2)}...\n` +
-          `(totalt ${tokens.length} tokens med padding)`;
+        const verdict = getVerdict(scores[0]);
         
-        document.getElementById('probability').textContent = 
-          (scores[0] * 100).toFixed(1) + '%';
+        document.getElementById('tokens').textContent = 
+          `Ord: ${JSON.stringify(words, null, 2)}\n\n` +
+          `Tokens: ${tokens.slice(0, 15).join(', ')}... (${tokens.length} totalt)`;
+        
+        const resultBox = document.getElementById('probability');
+        resultBox.textContent = verdict.text;
+        resultBox.className = `result-box ${verdict.class}`;
 
         document.getElementById('output').style.display = 'block';
-        document.getElementById('status').textContent = '✅ Klar!';
+        document.getElementById('status').textContent = '✅ Analys klar!';
         
       } catch (error) {
-        document.getElementById('status').textContent = '❌ Prediktionsfel: ' + error.message;
+        document.getElementById('status').textContent = '❌ Fel: ' + error.message;
       } finally {
         document.getElementById('predictBtn').disabled = false;
       }
     }
 
-    // Event listeners
     document.getElementById('predictBtn').addEventListener('click', predictText);
     document.getElementById('inputText').addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && e.ctrlKey) predictText();
