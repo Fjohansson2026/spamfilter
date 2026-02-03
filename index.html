@@ -97,6 +97,11 @@
       box-shadow: 0 15px 35px rgba(0,0,0,0.2);
     }
 
+    textarea:disabled {
+      background: #ddd;
+      cursor: not-allowed;
+    }
+
     button {
       width: 100%;
       padding: 20px;
@@ -131,6 +136,15 @@
       margin: 20px 0;
       color: #ffeaa7;
       min-height: 25px;
+      padding: 15px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+    }
+
+    .debug {
+      background: rgba(255,0,0,0.2);
+      border: 1px solid #ff4444;
+      color: #ffeeee;
     }
 
     .output {
@@ -194,10 +208,10 @@
       <div class="dude">🤖</div>
     </div>
     
-    <textarea id="inputText" placeholder="Skriv en engelsk mening här... t.ex. 'Win FREE iPhone now!' eller 'Meeting at 3pm tomorrow.'"></textarea>
+    <textarea id="inputText" placeholder="Skriv en engelsk mening här..." disabled></textarea>
     <button id="predictBtn" disabled>🔮 Analysera text</button>
     
-    <div id="status" class="status">Laddar AI-modell...</div>
+    <div id="status" class="status">🚀 Startar upp Spam Detector...</div>
     
     <div id="output" style="display: none;">
       <div class="section">
@@ -212,42 +226,67 @@
     </div>
   </div>
 
-  <!-- TensorFlow.js laddas ASYNKRONT för att inte blockera -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js" onload="initApp()"></script>
-  
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
   <script>
     let model = null;
     let metadata = null;
     const MAX_LENGTH = 30;
-    let tfLoaded = false;
 
-    // Vänta på att TF.js laddas innan appen startar
-    function initApp() {
-      tfLoaded = true;
-      loadModel();
-    }
-
+    // STEG-FÖR-STEG laddning med DEBUG-info
     async function loadModel() {
-      if (!tfLoaded) return; // Vänta på TF.js
+      const status = document.getElementById('status');
       
       try {
-        document.getElementById('status').textContent = '🔄 Laddar Spam Detector från tfjs_model...';
+        status.textContent = '📥 Laddar TensorFlow.js...';
+        status.classList.remove('debug');
         
-        model = await tf.loadLayersModel('tfjs_model/model.json');
+        // Vänta på TF.js
+        await tf.ready();
+        status.textContent = '✅ TensorFlow.js redo. Laddar modell...';
+        
+        // TESTA om modell-filen finns
+        status.textContent = '🔍 Kollar om tfjs_model/model.json finns...';
+        try {
+          const response = await fetch('tfjs_model/model.json');
+          if (!response.ok) {
+            throw new Error(`404: Hittar inte model.json (status: ${response.status})`);
+          }
+          status.textContent = '✅ model.json hittad!';
+        } catch (e) {
+          status.innerHTML = `❌ <strong>KAN INTE HITTA MODELLEN!</strong><br>` +
+            `Filen <code>tfjs_model/model.json</code> saknas eller är fel.<br>` +
+            `<br><strong>Kontrollera:</strong><br>` +
+            `• Finns mappen <code>tfjs_model/</code> i samma mapp som index.html?<br>` +
+            `• Finns <code>model.json</code> i den mappen?<br>` +
+            `• Finns alla <code>.bin</code>-filer?<br>` +
+            `<br><small>Klicka F12 → Console för mer info</small>`;
+          status.classList.add('debug');
+          return;
+        }
+        
+        // Ladda metadata först
+        status.textContent = '📄 Laddar metadata.json...';
         const metadataResponse = await fetch('tfjs_model/metadata.json');
+        if (!metadataResponse.ok) {
+          throw new Error(`metadata.json saknas (status: ${metadataResponse.status})`);
+        }
         metadata = await metadataResponse.json();
+        status.textContent = '✅ Metadata laddad!';
         
-        document.getElementById('status').textContent = '✅ AI redo! Testa din text.';
-        document.getElementById('predictBtn').disabled = false;
+        // Ladda själva modellen
+        status.textContent = '🧠 Laddar AI-modellen... (kan ta 10-30 sek)';
+        model = await tf.loadLayersModel('tfjs_model/model.json');
+        status.textContent = '🎉 SPAM DETECTOR REDO!';
+        
+        // Aktivera input och knapp
         document.getElementById('inputText').disabled = false;
+        document.getElementById('predictBtn').disabled = false;
         
       } catch (error) {
-        console.error('Modellfel:', error);
-        document.getElementById('status').innerHTML = 
-          '❌ Kunde inte ladda modell: ' + error.message + 
-          '<br><small>Kontrollera att tfjs_model-mappen finns!</small>';
-        document.getElementById('predictBtn').disabled = true;
-        document.getElementById('inputText').disabled = true;
+        console.error('FULL ERROR:', error);
+        status.innerHTML = `❌ FEL: ${error.message}<br>` +
+          `<small>Klicka F12 → Console för detaljer. Kontrollera modellkonverteringen!</small>`;
+        status.classList.add('debug');
       }
     }
 
@@ -293,17 +332,14 @@
         return;
       }
 
-      if (!model) {
-        alert('AI-modellen laddas fortfarande...');
-        return;
-      }
+      const btn = document.getElementById('predictBtn');
+      btn.disabled = true;
+      btn.textContent = '🤖 Analyserar...';
+      
+      const status = document.getElementById('status');
+      status.textContent = '🤖 AI analyserar...';
 
       try {
-        const btn = document.getElementById('predictBtn');
-        btn.disabled = true;
-        btn.textContent = '🤖 Analyserar...';
-        document.getElementById('status').textContent = '🤖 AI analyserar texten...';
-
         const { words, tokens } = tokenize(inputText);
         const inputTensor = tf.tensor2d([tokens], [1, MAX_LENGTH]);
         
@@ -323,44 +359,27 @@
         resultBox.className = `result-box ${verdict.class}`;
 
         document.getElementById('output').style.display = 'block';
-        document.getElementById('status').textContent = '✅ Ny analys redo!';
+        status.textContent = '✅ Ny analys klar!';
         
       } catch (error) {
         console.error('Prediktionsfel:', error);
-        document.getElementById('status').textContent = '❌ Analysfel: ' + error.message;
+        status.textContent = '❌ Analysfel: ' + error.message;
       } finally {
-        const btn = document.getElementById('predictBtn');
         btn.disabled = false;
         btn.textContent = '🔮 Analysera text';
       }
     }
 
-    // Event listeners - SÄKERSTÄLL att elementen finns
-    function addEventListeners() {
-      const predictBtn = document.getElementById('predictBtn');
-      const inputText = document.getElementById('inputText');
-      
-      if (predictBtn) {
-        predictBtn.addEventListener('click', predictText);
-      }
-      
-      if (inputText) {
-        inputText.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter' && e.ctrlKey) {
-            predictText();
-          }
-        });
-      }
-    }
-
-    // Starta appen när DOM är laddad
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function() {
-        addEventListeners();
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('predictBtn').addEventListener('click', predictText);
+      document.getElementById('inputText').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && e.ctrlKey) predictText();
       });
-    } else {
-      addEventListeners();
-    }
+      
+      // Starta laddning
+      setTimeout(loadModel, 100); // Liten fördröjning för att säkerställa DOM
+    });
   </script>
 </body>
 </html>
